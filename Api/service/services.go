@@ -6,7 +6,7 @@ import (
 )
 
 type RunContainer interface {
-	RunProgram(resp container.CreateResponse, input string) (string, error)
+	RunProgram(resp container.CreateResponse, input string, binaryName string) (string, error)
 	CompileProgram(resp container.CreateResponse, compileCommand string) (types.IDResponse, error)
 	CreateContainer(image string, AbsPath string) (container.CreateResponse, error)
 	RemoveContainer(resp container.CreateResponse)

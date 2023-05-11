@@ -23,9 +23,9 @@ func NewClient() *Client {
 	}
 }
 
-func (cli *Client) RunProgram(resp container.CreateResponse, input string) (string, error) {
+func (cli *Client) RunProgram(resp container.CreateResponse, input string, binaryName string) (string, error) {
 	execResp, err := cli.ContainerExecCreate(context.Background(), resp.ID, types.ExecConfig{
-		Cmd:          []string{"bash", "-c", fmt.Sprintf("cd /app && %s", "./program")},
+		Cmd:          []string{"bash", "-c", fmt.Sprintf("cd /app && ./%s", binaryName)},
 		Tty:          true,
 		AttachStdin:  true,
 		AttachStdout: true,

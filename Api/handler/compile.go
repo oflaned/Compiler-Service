@@ -4,6 +4,7 @@ import (
 	"Builder/lib"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"log"
 	"net/http"
 	"os"
 	"path"
@@ -16,25 +17,28 @@ type Program struct {
 	Input string `json:"input"`
 }
 
-const binaryName = "program"
-
 func (h *Handler) Compile(c *gin.Context) {
 
 	var program Program
 	err := c.BindJSON(&program)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "Error convert from JSON")
+		log.Println("Error convert from JSON")
+		c.String(http.StatusInternalServerError, "error 500 Server")
 		return
 	}
 
 	var image, compileCommand, AbsPath string
 	codePath, err := lib.CreateTempCFile(program.Code)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "Error while create a TempFile")
+		log.Println("Error while create a TempFile")
+		c.String(http.StatusInternalServerError, "error 500 Server")
 		return
 	}
 	defer os.Remove(codePath.Name())
 
+	binaryName := path.Base(codePath.Name())[:len(path.Base(codePath.Name()))-4]
+	defer os.Remove(path.Join(path.Dir(codePath.Name()), binaryName))
+	
 	switch program.Lang {
 	case "c++":
 		image = "gcc:latest"
@@ -45,14 +49,18 @@ func (h *Handler) Compile(c *gin.Context) {
 
 	cliContainer, err := h.services.CreateContainer(image, AbsPath)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "Error while create a container")
+		log.Println("Error while create a container")
+		c.String(http.StatusInternalServerError, "error 500 Server")
+		return
 	}
 	_, err = h.services.CompileProgram(cliContainer, compileCommand)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "Error while compile program")
+		log.Println("Error while compile program")
+		c.String(http.StatusInternalServerError, "error 500 Server")
+		return
 	}
-	out, err := h.services.RunProgram(cliContainer, program.Input)
+	out, err := h.services.RunProgram(cliContainer, program.Input, binaryName)
 	h.services.RemoveContainer(cliContainer)
 
-	c.String(http.StatusOK, string(out))
+	c.String(http.StatusOK, out)
 }

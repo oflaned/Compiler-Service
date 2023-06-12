@@ -65,15 +65,14 @@ func (h *Handler) Compile(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	done := make(chan bool)
+	var out string
 	go func() {
-		out, err := h.services.RunProgram(cliContainer, program.Input, binaryName)
+		out, err = h.services.RunProgram(cliContainer, program.Input, binaryName)
 		if err != nil {
 			log.Println("Error while Run program")
 			c.String(http.StatusInternalServerError, "error: while run program")
 			return
 		}
-		h.services.RemoveContainer(cliContainer)
-		c.String(http.StatusOK, out)
 		done <- true
 	}()
 	select {
@@ -82,6 +81,8 @@ func (h *Handler) Compile(c *gin.Context) {
 		log.Println("Execution time limit exceeded")
 		c.String(http.StatusInternalServerError, "error: Execution time limit exceeded")
 	case <-done:
+		h.services.RemoveContainer(cliContainer)
+		c.String(http.StatusOK, out)
 	}
 
 }

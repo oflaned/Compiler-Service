@@ -72,9 +72,9 @@ func (h *Handler) Compile(c *gin.Context) {
 			c.String(http.StatusInternalServerError, "error: while run program")
 			return
 		}
-		done <- true
 		h.services.RemoveContainer(cliContainer)
 		c.String(http.StatusOK, out)
+		done <- true
 	}()
 	select {
 	case <-ctx.Done():
@@ -83,4 +83,5 @@ func (h *Handler) Compile(c *gin.Context) {
 		c.String(http.StatusInternalServerError, "error: Execution time limit exceeded")
 	case <-done:
 	}
+
 }

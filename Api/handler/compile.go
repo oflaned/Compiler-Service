@@ -2,6 +2,7 @@ package handler
 
 import (
 	"Builder/lib"
+	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"log"
@@ -9,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"time"
 )
 
 type Program struct {
@@ -38,7 +40,7 @@ func (h *Handler) Compile(c *gin.Context) {
 
 	binaryName := path.Base(codePath.Name())[:len(path.Base(codePath.Name()))-4]
 	defer os.Remove(path.Join(path.Dir(codePath.Name()), binaryName))
-	
+
 	switch program.Lang {
 	case "c++":
 		image = "gcc:latest"
@@ -50,17 +52,35 @@ func (h *Handler) Compile(c *gin.Context) {
 	cliContainer, err := h.services.CreateContainer(image, AbsPath)
 	if err != nil {
 		log.Println("Error while create a container")
-		c.String(http.StatusInternalServerError, "error 500 Server")
+		c.String(http.StatusInternalServerError, "error: 500 Server")
 		return
 	}
 	_, err = h.services.CompileProgram(cliContainer, compileCommand)
 	if err != nil {
 		log.Println("Error while compile program")
-		c.String(http.StatusInternalServerError, "error 500 Server")
+		c.String(http.StatusInternalServerError, "error: 500 Server")
 		return
 	}
-	out, err := h.services.RunProgram(cliContainer, program.Input, binaryName)
-	h.services.RemoveContainer(cliContainer)
 
-	c.String(http.StatusOK, out)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	done := make(chan bool)
+	go func() {
+		out, err := h.services.RunProgram(cliContainer, program.Input, binaryName)
+		if err != nil {
+			log.Println("Error while Run program")
+			c.String(http.StatusInternalServerError, "error: while run program")
+			return
+		}
+		done <- true
+		h.services.RemoveContainer(cliContainer)
+		c.String(http.StatusOK, out)
+	}()
+	select {
+	case <-ctx.Done():
+		h.services.RemoveContainer(cliContainer)
+		log.Println("Execution time limit exceeded")
+		c.String(http.StatusInternalServerError, "error: Execution time limit exceeded")
+	case <-done:
+	}
 }

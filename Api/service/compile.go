@@ -82,7 +82,6 @@ func (cli *Client) CompileProgram(resp container.CreateResponse, compileCommand 
 
 			if !execInspectResp.Running {
 				waitChan <- err
-				break
 			}
 
 			time.Sleep(1 * time.Second)

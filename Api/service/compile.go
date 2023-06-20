@@ -66,15 +66,41 @@ func (cli *Client) CompileProgram(resp container.CreateResponse, compileCommand 
 		}
 	}
 
-	err = cli.ContainerExecStart(context.Background(), execResp.ID, types.ExecStartCheck{})
-	if err != nil {
+	waitChan := make(chan error, 1)
+
+	go func() {
+		err := cli.ContainerExecStart(context.Background(), execResp.ID, types.ExecStartCheck{})
 		if err != nil {
-			log.Println("Error while Start Compile")
+			waitChan <- err
+		}
+
+		for {
+			execInspectResp, err := cli.ContainerExecInspect(context.Background(), execResp.ID)
+			if err != nil {
+				waitChan <- err
+			}
+
+			if !execInspectResp.Running {
+				waitChan <- err
+				break
+			}
+
+			time.Sleep(1 * time.Second)
+		}
+
+	}()
+
+	select {
+	case err := <-waitChan:
+		if err != nil {
+			log.Println("Error while Compile")
 			return execResp, err
 		}
+	case <-time.After(10 * time.Second):
+		log.Println("Timeout while waiting for compile")
+		return execResp, fmt.Errorf("timeout")
 	}
 
-	time.Sleep(2 * time.Second)
 	return execResp, nil
 }
 

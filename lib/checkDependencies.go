@@ -6,7 +6,7 @@ import (
 )
 
 func CheckDependencies() (string, error) {
-	dependencies := []string{"g++", "go"}
+	dependencies := []string{"g++"}
 
 	for _, dep := range dependencies {
 		if _, err := exec.LookPath(dep); err != nil {
